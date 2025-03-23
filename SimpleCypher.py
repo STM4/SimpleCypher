@@ -81,6 +81,17 @@ class EncryptorApp(QWidget):
         self.file_path, _ = file_dialog.getOpenFileName(self, "Select a File")
         if self.file_path:
             self.file_label.setText(os.path.basename(self.file_path))
+            
+    def get_hash_function(self, method):
+        if method == "SHA-256":
+            return hashlib.sha256()
+        elif method == "SHA-512":
+            return hashlib.sha512()
+        elif method == "MD5":
+            return hashlib.md5()
+        else:
+            self.status_label.setText("Invalid hashing method.")
+            return None
     
     def encrypt_file(self):
         if not self.file_path:
