@@ -1,7 +1,7 @@
 import sys
 import os
 import hashlib
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QLabel, QComboBox
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QLabel, QComboBox, QHBoxLayout
 from cryptography.fernet import Fernet
 
 class EncryptorApp(QWidget):
@@ -11,7 +11,7 @@ class EncryptorApp(QWidget):
 
     def init_ui(self):
         self.setWindowTitle("SimpleCypher")
-        self.setGeometry(200, 200, 400, 300)
+        self.setGeometry(200, 200, 500, 400)
         
         layout = QVBoxLayout()
         
@@ -32,9 +32,16 @@ class EncryptorApp(QWidget):
         self.generate_key_button.clicked.connect(self.generate_key)
         layout.addWidget(self.generate_key_button)
         
+        file_layout = QHBoxLayout()
+        
         self.select_button = QPushButton("Select a File")
         self.select_button.clicked.connect(self.select_file)
-        layout.addWidget(self.select_button)
+        file_layout.addWidget(self.select_button)
+        
+        self.file_label = QLabel("No file selected")
+        file_layout.addWidget(self.file_label)
+        
+        layout.addLayout(file_layout)
         
         self.encrypt_button = QPushButton("Encrypt")
         self.encrypt_button.clicked.connect(self.encrypt_file)
@@ -52,8 +59,18 @@ class EncryptorApp(QWidget):
         self.verify_button.clicked.connect(self.verify_signature)
         layout.addWidget(self.verify_button)
         
+        self.status_label = QLabel("")
+        layout.addWidget(self.status_label)
+        
         self.setLayout(layout)
         self.file_path = ""
+
+        footer = QLabel("v1.1")
+        footer.setStyleSheet("background-color: #383838; padding: 5px; text-align: center;")
+
+        layout.addWidget(footer)
+        layout.setStretch(0, 1) 
+        layout.setStretch(1, 0)  
 
     def generate_key(self):
         key = Fernet.generate_key()
@@ -62,17 +79,19 @@ class EncryptorApp(QWidget):
     def select_file(self):
         file_dialog = QFileDialog()
         self.file_path, _ = file_dialog.getOpenFileName(self, "Select a File")
+        if self.file_path:
+            self.file_label.setText(os.path.basename(self.file_path))
     
     def encrypt_file(self):
         if not self.file_path:
-            self.label.setText("Please select a file.")
+            self.status_label.setText("Please select a file.")
             return
         
         method = self.method_combo.currentText()
         
         if method == "AES":
             if not self.key_input.text():
-                self.label.setText("Please enter a key for AES.")
+                self.status_label.setText("Please enter a key for AES.")
                 return
             
             key = self.key_input.text().encode()
@@ -85,7 +104,7 @@ class EncryptorApp(QWidget):
             with open(self.file_path + ".enc", "wb") as file:
                 file.write(encrypted_data)
             
-            self.label.setText("File successfully encrypted (AES).")
+            self.status_label.setText("File successfully encrypted (AES).")
         else:
             hash_func = self.get_hash_function(method)
             if not hash_func:
@@ -100,15 +119,15 @@ class EncryptorApp(QWidget):
             with open(self.file_path + f".{method.lower()}_hash", "w") as file:
                 file.write(hash_value)
             
-            self.label.setText(f"{method} hash generated successfully.")
+            self.status_label.setText(f"{method} hash generated successfully.")
     
     def decrypt_file(self):
         if not self.file_path or not self.key_input.text():
-            self.label.setText("Please select a file and enter a key.")
+            self.status_label.setText("Please select a file and enter a key.")
             return
         
         if self.method_combo.currentText() != "AES":
-            self.label.setText("Decryption is only possible with AES.")
+            self.status_label.setText("Decryption is only possible with AES.")
             return
         
         key = self.key_input.text().encode()
@@ -119,22 +138,22 @@ class EncryptorApp(QWidget):
             try:
                 decrypted_data = cipher.decrypt(encrypted_data)
             except:
-                self.label.setText("Invalid key or corrupted file.")
+                self.status_label.setText("Invalid key or corrupted file.")
                 return
         
         with open(self.file_path.replace(".enc", ""), "wb") as file:
             file.write(decrypted_data)
         
-        self.label.setText("File successfully decrypted (AES).")
+        self.status_label.setText("File successfully decrypted (AES).")
     
     def sign_file(self):
         if not self.file_path:
-            self.label.setText("Please select a file.")
+            self.status_label.setText("Please select a file.")
             return
         
         method = self.method_combo.currentText()
         if method == "AES":
-            self.label.setText("Signing is not possible with AES.")
+            self.status_label.setText("Signing is not possible with AES.")
             return
         
         hash_func = self.get_hash_function(method)
@@ -150,16 +169,16 @@ class EncryptorApp(QWidget):
         with open(self.file_path + f".{method.lower()}_sig", "w") as file:
             file.write(signature)
         
-        self.label.setText(f"File signed with {method}.")
+        self.status_label.setText(f"File signed with {method}.")
     
     def verify_signature(self):
         if not self.file_path:
-            self.label.setText("Please select a file.")
+            self.status_label.setText("Please select a file.")
             return
         
         signature_path, _ = QFileDialog.getOpenFileName(self, "Select the signature file")
         if not signature_path:
-            self.label.setText("Please select a signature file.")
+            self.status_label.setText("Please select a signature file.")
             return
         
         method = self.method_combo.currentText()
@@ -177,20 +196,9 @@ class EncryptorApp(QWidget):
             stored_signature = file.read().strip()
         
         if computed_signature == stored_signature:
-            self.label.setText("Signature is valid!")
+            self.status_label.setText("Signature is valid!")
         else:
-            self.label.setText("Signature is invalid!")
-    
-    def get_hash_function(self, method):
-        if method == "SHA-256":
-            return hashlib.sha256()
-        elif method == "SHA-512":
-            return hashlib.sha512()
-        elif method == "MD5":
-            return hashlib.md5()
-        else:
-            self.label.setText("Unsupported method.")
-            return None
+            self.status_label.setText("Signature is invalid!")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
